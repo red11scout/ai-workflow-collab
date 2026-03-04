@@ -47,6 +47,7 @@ const importMetaUrl = require("url").pathToFileURL(__filename).href;
     external: externals,
     logLevel: "info",
   });
+
 }
 
 buildAll().catch((err) => {
