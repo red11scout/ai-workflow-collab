@@ -4,3 +4,4 @@ dist/
 *.cjs
 .DS_Store
 migrations/
+.vercel

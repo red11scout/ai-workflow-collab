@@ -3,22 +3,12 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "functions": {
-    "dist/index.cjs": {
+    "api/index.ts": {
       "maxDuration": 60
     }
   },
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "dist/index.cjs"
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "dist/public/assets/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "dist/public/index.html"
-    }
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/(.*)", "destination": "/dist/public/index.html" }
   ]
 }
