@@ -4,7 +4,7 @@
   "installCommand": "npm install",
   "outputDirectory": "dist/public",
   "functions": {
-    "api/index.js": {
+    "api/index.mjs": {
       "maxDuration": 60
     }
   },

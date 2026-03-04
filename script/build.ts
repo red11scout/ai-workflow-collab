@@ -58,8 +58,12 @@ async function buildAll() {
   await esbuild({
     ...commonOptions,
     entryPoints: ["server/api-handler.ts"],
-    format: "cjs",
-    outfile: "api/index.js",
+    format: "esm",
+    outfile: "api/index.mjs",
+    banner: { js: "" },
+    define: {
+      "import.meta.url": "import.meta.url",
+    },
   });
 }
 

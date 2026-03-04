@@ -6,3 +6,4 @@ dist/
 migrations/
 .vercel
 api/index.js
+api/index.mjs
