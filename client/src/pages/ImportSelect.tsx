@@ -83,8 +83,8 @@ export default function ImportSelect() {
       });
       return res.json();
     },
-    onSuccess: (data: { useCases: UseCase[] }) => {
-      const useCases = (data.useCases || []).map((uc: UseCase) => ({
+    onSuccess: (data: { importedUseCases: UseCase[]; useCases: UseCase[] }) => {
+      const useCases = (data.importedUseCases || data.useCases || []).map((uc: UseCase) => ({
         ...uc,
         selected: true,
       }));
