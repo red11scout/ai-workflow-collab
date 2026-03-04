@@ -2,7 +2,7 @@ import type {
   ImportedUseCase,
   ImportedFriction,
   ImportedBenefit,
-} from "@shared/types";
+} from "../shared/types";
 
 interface ParseResult {
   companyName: string;

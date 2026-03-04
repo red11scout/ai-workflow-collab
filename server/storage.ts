@@ -5,9 +5,9 @@ import {
   workflowSteps,
   shareLinks,
   aiConversations,
-} from "@shared/schema";
+} from "../shared/schema";
 import { eq, and, asc } from "drizzle-orm";
-import type { WorkflowWithSteps, WorkflowStepData } from "@shared/types";
+import type { WorkflowWithSteps, WorkflowStepData } from "../shared/types";
 
 // ─── Projects ────────────────────────────────────────────────────────────────
 
