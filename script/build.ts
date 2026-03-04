@@ -57,7 +57,7 @@ async function buildAll() {
   console.log("building api function...");
   await esbuild({
     ...commonOptions,
-    entryPoints: ["api/index.ts"],
+    entryPoints: ["server/api-handler.ts"],
     format: "cjs",
     outfile: "api/index.js",
   });
