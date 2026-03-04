@@ -1,0 +1,114 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+
+  /* BlueAlly Brand Colors */
+  --color-blueally-navy: #001278;
+  --color-blueally-blue: #02a2fd;
+  --color-blueally-green: #36bf78;
+  --color-blueally-dark: #0a0e27;
+  --color-blueally-light: #f0f4ff;
+
+  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-heading: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+
+  --radius: 0.75rem;
+}
+
+/* Light Mode */
+:root {
+  --background: 220 50% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 230 100% 27%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 200 99% 50%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 220 20% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 148 56% 48%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 220 15% 91%;
+  --input: 220 15% 91%;
+  --ring: 230 100% 27%;
+  --chart-1: 230 100% 27%;
+  --chart-2: 148 56% 48%;
+  --chart-3: 200 99% 50%;
+  --chart-4: 280 60% 60%;
+  --chart-5: 30 90% 50%;
+}
+
+/* Dark Mode */
+.dark {
+  --background: 228 30% 8%;
+  --foreground: 210 40% 98%;
+  --card: 228 25% 12%;
+  --card-foreground: 210 40% 98%;
+  --popover: 228 25% 12%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 222 47% 11%;
+  --secondary: 200 99% 50%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 228 20% 18%;
+  --muted-foreground: 215 20% 55%;
+  --accent: 148 56% 48%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 228 15% 22%;
+  --input: 228 15% 22%;
+  --ring: 217 91% 60%;
+  --chart-1: 217 91% 60%;
+  --chart-2: 148 56% 48%;
+  --chart-3: 200 99% 50%;
+  --chart-4: 280 60% 60%;
+  --chart-5: 30 90% 50%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
