@@ -21,7 +21,7 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
-export async function createApp() {
+export async function createApp(serverless = false) {
   const app = express();
   const httpServer = createServer(app);
 
@@ -70,11 +70,13 @@ export async function createApp() {
     throw err;
   });
 
-  if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
-  } else {
-    const { setupVite } = await import("./vite");
-    await setupVite(httpServer, app);
+  if (!serverless) {
+    if (process.env.NODE_ENV === "production") {
+      serveStatic(app);
+    } else {
+      const { setupVite } = await import("./vite");
+      await setupVite(httpServer, app);
+    }
   }
 
   return { app, httpServer };
