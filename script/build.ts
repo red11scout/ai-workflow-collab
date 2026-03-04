@@ -28,26 +28,39 @@ async function buildAll() {
   ];
   const externals = allDeps.filter((dep) => !allowlist.includes(dep));
 
-  await esbuild({
-    entryPoints: ["server/index.ts"],
-    platform: "node",
+  const commonOptions = {
+    platform: "node" as const,
     bundle: true,
-    format: "cjs",
-    outfile: "dist/index.cjs",
     define: {
-      "process.env.NODE_ENV": '"production"',
       "import.meta.url": "importMetaUrl",
     },
     banner: {
-      js: `
-const importMetaUrl = require("url").pathToFileURL(__filename).href;
-      `.trim(),
+      js: `const importMetaUrl = require("url").pathToFileURL(__filename).href;`,
     },
     minify: true,
     external: externals,
-    logLevel: "info",
+    logLevel: "info" as const,
+  };
+
+  await esbuild({
+    ...commonOptions,
+    entryPoints: ["server/index.ts"],
+    format: "cjs",
+    outfile: "dist/index.cjs",
+    define: {
+      ...commonOptions.define,
+      "process.env.NODE_ENV": '"production"',
+    },
   });
 
+  // Build Vercel serverless API function (pre-bundled so Vercel doesn't compile TS)
+  console.log("building api function...");
+  await esbuild({
+    ...commonOptions,
+    entryPoints: ["api/index.ts"],
+    format: "cjs",
+    outfile: "api/index.js",
+  });
 }
 
 buildAll().catch((err) => {
