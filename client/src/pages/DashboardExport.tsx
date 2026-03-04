@@ -225,6 +225,7 @@ function DashboardInner({ projectId }: { projectId: string }) {
   const [expandedWorkflow, setExpandedWorkflow] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [exportingJson, setExportingJson] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const { data: project, isLoading, isError, error } = useQuery<ProjectWithWorkflows>({
     queryKey: [`/api/projects/${projectId}`],
@@ -388,6 +389,33 @@ function DashboardInner({ projectId }: { projectId: string }) {
     }
     return fallbackMetrics;
   }, [aggregate, fallbackMetrics]);
+
+  // ─── Export PDF ──────────────────────────────────────────────────────────
+
+  async function handleExportPdf() {
+    if (!project) return;
+    setExportingPdf(true);
+    try {
+      const { generatePdfBlob } = await import("@/components/export/PDFReport");
+      const blob = await generatePdfBlob(project);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${project.companyName || "project"}-workflow-analysis.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast({
+        title: "PDF export failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setExportingPdf(false);
+    }
+  }
 
   // ─── Export JSON ─────────────────────────────────────────────────────────
 
@@ -618,22 +646,50 @@ function DashboardInner({ projectId }: { projectId: string }) {
               Share Link
             </button>
 
-            {/* Download PDF (placeholder) */}
+            {/* Download PDF */}
             <button
-              onClick={() =>
-                toast({
-                  title: "Coming soon",
-                  description: "PDF export will be available in Phase 4.",
-                })
-              }
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 hover:border-[#02a2fd]/40"
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 hover:border-[#02a2fd]/40 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <FileText className="h-4 w-4 text-[#02a2fd]" />
+              {exportingPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4 text-[#02a2fd]" />
+              )}
               Download PDF
             </button>
 
-            {/* Export Excel (placeholder) */}
+            {/* Export Excel */}
             <ExcelExportButton projectId={projectId} />
+
+            {/* Print Report (HTML) */}
+            <button
+              onClick={async () => {
+                try {
+                  const res = await apiRequest(
+                    "POST",
+                    `/api/projects/${projectId}/export/html`,
+                  );
+                  const html = await res.text();
+                  const win = window.open("", "_blank");
+                  if (win) {
+                    win.document.write(html);
+                    win.document.close();
+                  }
+                } catch (err: any) {
+                  toast({
+                    title: "Print failed",
+                    description: err.message,
+                    variant: "destructive",
+                  });
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 hover:border-[#001278]/40 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <FileText className="h-4 w-4 text-[#001278] dark:text-[#02a2fd]" />
+              Print Report
+            </button>
 
             {/* Export JSON */}
             <button

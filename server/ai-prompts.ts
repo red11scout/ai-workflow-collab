@@ -104,13 +104,13 @@ export function buildCurrentPrompt(params: {
   aiPrimitives: string[];
 }): string {
   return `USE CASE: ${params.useCaseName}
-DESCRIPTION: ${params.useCaseDescription}
-INDUSTRY: ${params.industry}
-BUSINESS FUNCTION: ${params.businessFunction} / ${params.subFunction}
-TARGET FRICTION: ${params.targetFriction}
-FRICTION TYPE: ${params.frictionType}
-ANNUAL HOURS LOST: ${params.frictionAnnualHours}
-AI PRIMITIVES: ${params.aiPrimitives.join(", ")}`;
+DESCRIPTION: ${params.useCaseDescription || "Not specified"}
+INDUSTRY: ${params.industry || "General"}
+BUSINESS FUNCTION: ${params.businessFunction || "General"}${params.subFunction ? ` / ${params.subFunction}` : ""}
+TARGET FRICTION: ${params.targetFriction || "Not specified"}
+FRICTION TYPE: ${params.frictionType || "Not specified"}
+ANNUAL HOURS LOST: ${params.frictionAnnualHours || "Unknown"}
+AI PRIMITIVES: ${(params.aiPrimitives || []).join(", ") || "Not specified"}`;
 }
 
 export function buildAIWorkflowPrompt(params: {
@@ -143,11 +143,11 @@ export function buildAIWorkflowPrompt(params: {
 ${stepsText}
 
 USE CASE: ${params.useCaseName}
-DESCRIPTION: ${params.useCaseDescription}
-INDUSTRY: ${params.industry}
-BUSINESS FUNCTION: ${params.businessFunction} / ${params.subFunction}
-PAIN POINTS: ${params.frictionPoints.join("; ")}
-AI PATTERN: ${params.agenticPattern}
-AVAILABLE AI CAPABILITIES: ${params.aiPrimitives.join(", ")}
-DESIRED OUTCOMES: ${params.desiredOutcomes.join("; ")}`;
+DESCRIPTION: ${params.useCaseDescription || "Not specified"}
+INDUSTRY: ${params.industry || "General"}
+BUSINESS FUNCTION: ${params.businessFunction || "General"}${params.subFunction ? ` / ${params.subFunction}` : ""}
+PAIN POINTS: ${(params.frictionPoints || []).join("; ") || "Not specified"}
+AI PATTERN: ${params.agenticPattern || "Autonomous agent"}
+AVAILABLE AI CAPABILITIES: ${(params.aiPrimitives || []).join(", ") || "General AI capabilities"}
+DESIRED OUTCOMES: ${(params.desiredOutcomes || []).join("; ") || "Reduce time and cost"}`;
 }

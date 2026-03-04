@@ -98,20 +98,17 @@ export async function registerRoutes(server: Server, app: Express) {
   app.put(
     "/api/projects/:id/select-usecases",
     async (req: Request, res: Response) => {
-      const { useCaseIds } = req.body;
-      if (!Array.isArray(useCaseIds))
-        return res.status(400).json({ message: "useCaseIds must be an array" });
+      const { useCaseIds, useCases } = req.body;
+
+      // Support both import flow (useCaseIds) and manual flow (useCases)
+      const isManualFlow = Array.isArray(useCases);
+      const isImportFlow = Array.isArray(useCaseIds);
+      if (!isManualFlow && !isImportFlow)
+        return res.status(400).json({ message: "useCaseIds or useCases array required" });
 
       const project = await storage.getProject(req.params.id);
       if (!project)
         return res.status(404).json({ message: "Project not found" });
-
-      const importedUseCases =
-        (project.importedUseCases as any[]) || [];
-      const importedFriction =
-        (project.importedFriction as any[]) || [];
-      const importedBenefits =
-        (project.importedBenefits as any[]) || [];
 
       // Delete existing workflows for this project
       const existingWfs = await storage.getWorkflowsForProject(req.params.id);
@@ -119,48 +116,76 @@ export async function registerRoutes(server: Server, app: Express) {
         await storage.deleteWorkflow(wf.id);
       }
 
-      // Create workflow for each selected use case
       const createdWorkflows = [];
-      for (let i = 0; i < useCaseIds.length; i++) {
-        const ucId = useCaseIds[i];
-        const uc = importedUseCases.find((u: any) => u.id === ucId);
-        if (!uc) continue;
 
-        // Find matching friction
-        const friction = importedFriction.find(
-          (f: any) => f.id === uc.targetFrictionId,
-        );
-        const benefit = importedBenefits.find(
-          (b: any) => b.useCaseId === ucId,
-        );
+      if (isManualFlow) {
+        // Manual creation: useCases are full objects from the form
+        for (let i = 0; i < useCases.length; i++) {
+          const uc = useCases[i];
+          const ucId = uc.id || `manual_${i + 1}`;
 
-        const wf = await storage.createWorkflow({
-          projectId: req.params.id,
-          useCaseId: ucId,
-          useCaseName: uc.name,
-          useCaseDescription: uc.description,
-          businessFunction: uc.function,
-          subFunction: uc.subFunction,
-          strategicTheme: uc.strategicTheme,
-          targetFriction: uc.targetFriction || friction?.frictionPoint || "",
-          agenticPattern: uc.agenticPattern,
-          patternRationale: uc.patternRationale,
-          aiPrimitives: uc.aiPrimitives,
-          desiredOutcomes: uc.desiredOutcomes,
-          dataTypes: uc.dataTypes,
-          integrations: uc.integrations,
-          frictionAnnualCost: friction
-            ? parseInt(String(friction.estimatedAnnualCost).replace(/[,$]/g, "")) || 0
-            : 0,
-          frictionAnnualHours: friction?.annualHours || 0,
-          sortOrder: i,
+          const wf = await storage.createWorkflow({
+            projectId: req.params.id,
+            useCaseId: ucId,
+            useCaseName: uc.name,
+            useCaseDescription: uc.description || "",
+            businessFunction: uc.businessFunction || uc.function || "",
+            targetFriction: uc.targetFriction || "",
+            desiredOutcomes: uc.desiredOutcomes || [],
+            sortOrder: i,
+          });
+          createdWorkflows.push(wf);
+        }
+
+        await storage.updateProject(req.params.id, {
+          selectedUseCaseIds: useCases.map(
+            (uc: any, i: number) => uc.id || `manual_${i + 1}`,
+          ),
         });
-        createdWorkflows.push(wf);
-      }
+      } else {
+        // Import flow: look up use cases by ID from imported data
+        const importedUseCases =
+          (project.importedUseCases as any[]) || [];
+        const importedFriction =
+          (project.importedFriction as any[]) || [];
 
-      await storage.updateProject(req.params.id, {
-        selectedUseCaseIds: useCaseIds,
-      });
+        for (let i = 0; i < useCaseIds.length; i++) {
+          const ucId = useCaseIds[i];
+          const uc = importedUseCases.find((u: any) => u.id === ucId);
+          if (!uc) continue;
+
+          const friction = importedFriction.find(
+            (f: any) => f.id === uc.targetFrictionId,
+          );
+
+          const wf = await storage.createWorkflow({
+            projectId: req.params.id,
+            useCaseId: ucId,
+            useCaseName: uc.name,
+            useCaseDescription: uc.description,
+            businessFunction: uc.function,
+            subFunction: uc.subFunction,
+            strategicTheme: uc.strategicTheme,
+            targetFriction: uc.targetFriction || friction?.frictionPoint || "",
+            agenticPattern: uc.agenticPattern,
+            patternRationale: uc.patternRationale,
+            aiPrimitives: uc.aiPrimitives,
+            desiredOutcomes: uc.desiredOutcomes,
+            dataTypes: uc.dataTypes,
+            integrations: uc.integrations,
+            frictionAnnualCost: friction
+              ? parseInt(String(friction.estimatedAnnualCost).replace(/[,$]/g, "")) || 0
+              : 0,
+            frictionAnnualHours: friction?.annualHours || 0,
+            sortOrder: i,
+          });
+          createdWorkflows.push(wf);
+        }
+
+        await storage.updateProject(req.params.id, {
+          selectedUseCaseIds: useCaseIds,
+        });
+      }
 
       res.json({ success: true, workflows: createdWorkflows });
     },
@@ -298,10 +323,31 @@ export async function registerRoutes(server: Server, app: Express) {
     "/api/ai/generate-current",
     async (req: Request, res: Response) => {
       try {
-        const userPrompt = buildCurrentPrompt(req.body);
+        const { workflowId } = req.body;
+
+        // Look up workflow + project for context
+        const wf = workflowId ? await storage.getWorkflow(workflowId) : null;
+        let project: any = null;
+        if (wf) {
+          project = await storage.getProject(wf.projectId);
+        }
+
+        const promptParams = {
+          useCaseName: wf?.useCaseName || req.body.useCaseName || "",
+          useCaseDescription: wf?.useCaseDescription || req.body.useCaseDescription || "",
+          businessFunction: wf?.businessFunction || req.body.businessFunction || "",
+          subFunction: wf?.subFunction || req.body.subFunction || "",
+          targetFriction: wf?.targetFriction || req.body.targetFriction || "",
+          frictionType: req.body.frictionType || "",
+          frictionAnnualHours: wf?.frictionAnnualHours || req.body.frictionAnnualHours || 0,
+          industry: project?.industry || req.body.industry || "",
+          aiPrimitives: (wf?.aiPrimitives as string[]) || req.body.aiPrimitives || [],
+        };
+
+        const userPrompt = buildCurrentPrompt(promptParams);
 
         const message = await anthropic.messages.create({
-          model: "claude-sonnet-4-5-20250514",
+          model: "claude-sonnet-4-6",
           max_tokens: 4096,
           messages: [
             {
@@ -314,7 +360,6 @@ export async function registerRoutes(server: Server, app: Express) {
         const text =
           message.content[0].type === "text" ? message.content[0].text : "";
 
-        // Parse JSON from response
         const jsonMatch = text.match(/\[[\s\S]*\]/);
         if (!jsonMatch) {
           return res
@@ -323,6 +368,28 @@ export async function registerRoutes(server: Server, app: Express) {
         }
 
         const steps = JSON.parse(jsonMatch[0]);
+
+        // Save steps to DB if workflowId provided
+        if (workflowId) {
+          await storage.deleteStepsByWorkflowAndPhase(workflowId, "current");
+          await storage.batchCreateSteps(
+            steps.map((s: any, i: number) => ({
+              workflowId,
+              phase: "current",
+              stepNumber: s.stepNumber || i + 1,
+              name: s.name,
+              description: s.description || "",
+              actorType: s.actorType || "human",
+              actorName: s.actorName || "",
+              durationMinutes: s.durationMinutes || 15,
+              systems: s.systems || [],
+              painPoints: s.painPoints || [],
+              isBottleneck: s.isBottleneck || false,
+              isDecisionPoint: s.isDecisionPoint || false,
+            })),
+          );
+        }
+
         res.json({ success: true, steps });
       } catch (error: any) {
         log(`AI generate-current error: ${error.message}`);
@@ -339,7 +406,7 @@ export async function registerRoutes(server: Server, app: Express) {
         const userPrompt = buildAIWorkflowPrompt(params);
 
         const message = await anthropic.messages.create({
-          model: "claude-sonnet-4-5-20250514",
+          model: "claude-sonnet-4-6",
           max_tokens: 4096,
           messages: [
             {
@@ -439,7 +506,7 @@ export async function registerRoutes(server: Server, app: Express) {
         const userPrompt = buildAIWorkflowPrompt(params);
 
         const message = await anthropic.messages.create({
-          model: "claude-sonnet-4-5-20250514",
+          model: "claude-sonnet-4-6",
           max_tokens: 4096,
           messages: [
             {
@@ -515,7 +582,7 @@ export async function registerRoutes(server: Server, app: Express) {
         SYSTEM_PROMPTS.assistSections.mapping;
 
       const stream = anthropic.messages.stream({
-        model: "claude-sonnet-4-5-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 2048,
         system: systemPrompt,
         messages: [
@@ -581,6 +648,42 @@ export async function registerRoutes(server: Server, app: Express) {
 
       const { ownerToken, ...safeProject } = project;
       res.json(safeProject);
+    },
+  );
+
+  app.post(
+    "/api/projects/:id/export/excel",
+    async (req: Request, res: Response) => {
+      const project = await storage.getProjectWithWorkflows(req.params.id);
+      if (!project)
+        return res.status(404).json({ message: "Project not found" });
+
+      const { generateExcelBuffer } = await import("./export-service");
+      const buffer = await generateExcelBuffer(project, project.workflows);
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${project.companyName || "project"}-workflow-analysis.xlsx"`,
+      );
+      res.send(buffer);
+    },
+  );
+
+  app.post(
+    "/api/projects/:id/export/html",
+    async (req: Request, res: Response) => {
+      const project = await storage.getProjectWithWorkflows(req.params.id);
+      if (!project)
+        return res.status(404).json({ message: "Project not found" });
+
+      const { generateHtmlReport } = await import("./export-service");
+      const html = generateHtmlReport(project, project.workflows);
+      res.setHeader("Content-Type", "text/html");
+      res.send(html);
     },
   );
 }
