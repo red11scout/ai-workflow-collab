@@ -2,6 +2,7 @@
   "version": 2,
   "buildCommand": "npm run build",
   "installCommand": "npm install",
+  "outputDirectory": "dist/public",
   "functions": {
     "api/index.ts": {
       "maxDuration": 60
@@ -9,6 +10,6 @@
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/(.*)", "destination": "/dist/public/index.html" }
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ]
 }
