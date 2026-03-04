@@ -9,7 +9,7 @@ import {
   buildCurrentPrompt,
   buildAIWorkflowPrompt,
 } from "./ai-prompts";
-import { log } from "./index";
+import { log } from "./log";
 
 function getOwnerToken(req: Request): string {
   const token = req.headers["x-owner-token"] as string;
