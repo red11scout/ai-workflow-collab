@@ -14,7 +14,7 @@ export async function apiRequest(
   timeoutMs?: number,
 ): Promise<Response> {
   const controller = new AbortController();
-  const timeout = timeoutMs || (url.includes("/api/ai/") ? 60000 : 30000);
+  const timeout = timeoutMs || (url.includes("/api/ai/") ? 180000 : 30000);
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {

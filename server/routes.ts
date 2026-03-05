@@ -17,6 +17,75 @@ function getOwnerToken(req: Request): string {
   return token;
 }
 
+/**
+ * Extract and parse JSON array from AI response text.
+ * Strips markdown code blocks, attempts repair of truncated JSON.
+ */
+function parseAIJsonArray(rawText: string): any[] {
+  // Strip markdown code blocks
+  let text = rawText
+    .replace(/^```(?:json)?\s*\n?/gm, "")
+    .replace(/```\s*$/gm, "");
+
+  // Try to extract JSON array
+  const jsonMatch = text.match(/\[[\s\S]*\]/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch {
+      // Fall through to repair
+    }
+  }
+
+  // Attempt JSON repair for truncated responses
+  const arrayStart = text.indexOf("[");
+  if (arrayStart !== -1) {
+    let partial = text.substring(arrayStart);
+
+    // Count open/close braces and brackets to close them
+    let braces = 0;
+    let brackets = 0;
+    for (const ch of partial) {
+      if (ch === "{") braces++;
+      if (ch === "}") braces--;
+      if (ch === "[") brackets++;
+      if (ch === "]") brackets--;
+    }
+
+    // Close unclosed structures
+    while (braces > 0) {
+      partial += "}";
+      braces--;
+    }
+    while (brackets > 0) {
+      partial += "]";
+      brackets--;
+    }
+
+    // Fix trailing commas before closing brackets/braces
+    partial = partial.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]");
+
+    try {
+      return JSON.parse(partial);
+    } catch {
+      // Last resort: try to find complete objects
+      const objects: any[] = [];
+      const objRegex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+      let match;
+      while ((match = objRegex.exec(partial)) !== null) {
+        try {
+          objects.push(JSON.parse(match[0]));
+        } catch {
+          // skip malformed objects
+        }
+      }
+      if (objects.length > 0) return objects;
+    }
+  }
+
+  throw new Error("AI did not return valid JSON array");
+}
+
 export async function registerRoutes(server: Server, app: Express) {
   // ─── Projects ────────────────────────────────────────────────────────────
 
@@ -348,7 +417,7 @@ export async function registerRoutes(server: Server, app: Express) {
 
         const message = await anthropic.messages.create({
           model: "claude-sonnet-4-6",
-          max_tokens: 4096,
+          max_tokens: 8192,
           messages: [
             {
               role: "user",
@@ -360,14 +429,7 @@ export async function registerRoutes(server: Server, app: Express) {
         const text =
           message.content[0].type === "text" ? message.content[0].text : "";
 
-        const jsonMatch = text.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) {
-          return res
-            .status(500)
-            .json({ message: "AI did not return valid JSON" });
-        }
-
-        const steps = JSON.parse(jsonMatch[0]);
+        const steps = parseAIJsonArray(text);
 
         // Save steps to DB if workflowId provided
         if (workflowId) {
@@ -402,12 +464,52 @@ export async function registerRoutes(server: Server, app: Express) {
     "/api/ai/generate-ai-workflow",
     async (req: Request, res: Response) => {
       try {
-        const { workflowId, ...params } = req.body;
+        const { workflowId } = req.body;
+        if (!workflowId) {
+          return res.status(400).json({ message: "Missing workflowId" });
+        }
+
+        // Fetch the workflow + its current steps from DB
+        const wf = await storage.getWorkflowWithSteps(workflowId);
+        if (!wf) {
+          return res.status(404).json({ message: "Workflow not found" });
+        }
+
+        if (wf.currentSteps.length === 0) {
+          return res
+            .status(400)
+            .json({ message: "Map current-state steps before generating AI workflow" });
+        }
+
+        // Fetch project for industry context
+        const project = await storage.getProject(wf.projectId);
+
+        // Build prompt params from DB data (same pattern as generate-all)
+        const params = {
+          useCaseName: wf.useCaseName,
+          useCaseDescription: wf.useCaseDescription || "",
+          businessFunction: wf.businessFunction || "",
+          subFunction: wf.subFunction || "",
+          industry: project?.industry || "",
+          agenticPattern: wf.agenticPattern || "",
+          aiPrimitives: wf.aiPrimitives || [],
+          currentSteps: wf.currentSteps.map((s: any) => ({
+            stepNumber: s.stepNumber,
+            name: s.name,
+            actorName: s.actorName,
+            durationMinutes: s.durationMinutes,
+            description: s.description,
+            painPoints: s.painPoints,
+          })),
+          frictionPoints: [wf.targetFriction].filter(Boolean) as string[],
+          desiredOutcomes: wf.desiredOutcomes || [],
+        };
+
         const userPrompt = buildAIWorkflowPrompt(params);
 
         const message = await anthropic.messages.create({
           model: "claude-sonnet-4-6",
-          max_tokens: 4096,
+          max_tokens: 8192,
           messages: [
             {
               role: "user",
@@ -419,14 +521,7 @@ export async function registerRoutes(server: Server, app: Express) {
         const text =
           message.content[0].type === "text" ? message.content[0].text : "";
 
-        const jsonMatch = text.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) {
-          return res
-            .status(500)
-            .json({ message: "AI did not return valid JSON" });
-        }
-
-        const aiSteps = JSON.parse(jsonMatch[0]);
+        const aiSteps = parseAIJsonArray(text);
 
         // Clear existing AI steps and save new ones
         await storage.deleteStepsByWorkflowAndPhase(workflowId, "ai");
@@ -507,7 +602,7 @@ export async function registerRoutes(server: Server, app: Express) {
 
         const message = await anthropic.messages.create({
           model: "claude-sonnet-4-6",
-          max_tokens: 4096,
+          max_tokens: 8192,
           messages: [
             {
               role: "user",
@@ -520,10 +615,9 @@ export async function registerRoutes(server: Server, app: Express) {
           message.content[0].type === "text"
             ? message.content[0].text
             : "";
-        const jsonMatch = text.match(/\[[\s\S]*\]/);
 
-        if (jsonMatch) {
-          const aiSteps = JSON.parse(jsonMatch[0]);
+        try {
+          const aiSteps = parseAIJsonArray(text);
           await storage.deleteStepsByWorkflowAndPhase(wf.id, "ai");
           const saved = await storage.batchCreateSteps(
             aiSteps.map((s: any, i: number) => ({
@@ -554,6 +648,8 @@ export async function registerRoutes(server: Server, app: Express) {
           });
 
           results.push({ workflowId: wf.id, stepCount: saved.length });
+        } catch (parseErr: any) {
+          log(`AI generate-all: failed to parse response for workflow ${wf.id}: ${parseErr.message}`);
         }
 
         // Rate limit between calls

@@ -5,11 +5,12 @@
   "outputDirectory": "dist/public",
   "functions": {
     "api/index.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     }
   },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/api/(.*)", "dest": "/api" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
