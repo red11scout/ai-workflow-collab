@@ -572,6 +572,11 @@ export async function registerRoutes(server: Server, app: Express) {
       const results = [];
       for (const wf of project.workflows) {
         if (wf.currentSteps.length === 0) continue;
+        // Skip workflows that already have AI steps generated
+        if (wf.aiGenerated && wf.aiSteps.length > 0) {
+          results.push({ workflowId: wf.id, stepCount: wf.aiSteps.length, skipped: true });
+          continue;
+        }
 
         // Find friction info
         const friction = (project.importedFriction || []).find(

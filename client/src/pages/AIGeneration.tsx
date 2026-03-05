@@ -94,14 +94,23 @@ export default function AIGeneration() {
   // ─── Generate all workflows ────────────────────────────────
   const generateAllMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/ai/generate-all", {
-        projectId,
-      });
+      // 60s per ungenerated workflow, min 180s
+      const ungenCount = workflows.filter((wf) => !wf.aiGenerated).length;
+      const timeout = Math.max(180000, ungenCount * 60000);
+      const res = await apiRequest(
+        "POST",
+        "/api/ai/generate-all",
+        { projectId },
+        timeout,
+      );
       return res.json();
     },
     onMutate: () => {
-      const allIds = new Set(workflows.map((wf) => wf.id));
-      setGeneratingIds(allIds);
+      // Only mark ungenerated workflows as generating
+      const ungenIds = new Set(
+        workflows.filter((wf) => !wf.aiGenerated).map((wf) => wf.id),
+      );
+      setGeneratingIds(ungenIds);
     },
     onSuccess: () => {
       setGeneratingIds(new Set());
